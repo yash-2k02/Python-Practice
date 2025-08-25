@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException
 from sqlmodel import Session
 from db import get_session, init_db
@@ -6,7 +7,12 @@ from routes import customer_router, user_router, category_router, product_router
 from auth import current_user_context, authenticate_user, create_access_token, get_current_user
 from logger import logger
 
-app = FastAPI(title="Ecommerce App | FastAPI")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+app = FastAPI(title="Ecommerce App | FastAPI", lifespan=lifespan)
 
 
 app.include_router(user_router)
@@ -14,10 +20,6 @@ app.include_router(customer_router, dependencies=[Depends(get_current_user)])
 app.include_router(category_router, dependencies=[Depends(get_current_user)])
 app.include_router(product_router, dependencies=[Depends(get_current_user)])
 app.include_router(order_router, dependencies=[Depends(get_current_user)])
-
-@app.on_event("startup")
-def start():
-    init_db()
 
 
 @app.post("/login")

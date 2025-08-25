@@ -1,0 +1,5 @@
+2025-08-04 13:18:39,238 | DEBUG | Debugging issue
+2025-08-04 13:18:39,238 | INFO | Starting process
+2025-08-04 13:18:39,238 | WARNING | Low disk space
+2025-08-04 13:18:39,238 | ERROR | An error occurred
+2025-08-04 13:18:39,238 | CRITICAL | System failure

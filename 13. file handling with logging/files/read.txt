@@ -1,0 +1,5 @@
+Python is a powerful programming language.
+It is widely used in web development, data science, automation, and more.
+File handling is an essential concept in Python.
+You can read, write, and manage files using built-in functions.
+Always close the file or use a with-block to handle files safely.

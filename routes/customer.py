@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from models import CustomerCreate, Customer, CustomerUpdate, Order
 from db import get_session
 from models.User import UserModel
@@ -10,11 +11,13 @@ router = APIRouter(prefix="/customer", tags=["Customer"])
 
 
 @router.post("/create")
-def create_customer(customer: CustomerCreate, session: Session = Depends(get_session), current_user: UserModel = Depends(get_current_user)):
+async def create_customer(customer: CustomerCreate, session: AsyncSession = Depends(get_session), current_user: UserModel = Depends(get_current_user)):
     
-    existing_customer = session.exec(
+    result = await session.exec(
         select(Customer).where(Customer.user_id == current_user.user_id)
-    ).first()
+    )
+    
+    existing_customer = result.one_or_none()
 
     if existing_customer:
         logger.warning(f"Customer profile already exists for user_id={current_user.user_id}, username={current_user.username}")
@@ -28,8 +31,8 @@ def create_customer(customer: CustomerCreate, session: Session = Depends(get_ses
     )
     
     session.add(db_customer)
-    session.commit()
-    session.refresh(db_customer)
+    await session.commit()
+    await session.refresh(db_customer)
     
     logger.info(f"Customer created successfully: customer_id={db_customer.customer_id}, user_id={current_user.user_id}, username={current_user.username}")
     
@@ -37,9 +40,9 @@ def create_customer(customer: CustomerCreate, session: Session = Depends(get_ses
 
 
 @router.patch("/update")
-def update_customer(data: CustomerUpdate, current_user: UserModel = Depends(get_current_user), session: Session = Depends(get_session)):
+async def update_customer(data: CustomerUpdate, current_user: UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     
-    customer = session.get(Customer, current_user.user_id)
+    customer = await session.get(Customer, current_user.user_id)
     if not customer:
         logger.error(f"Customer not found for user_id={current_user.user_id}, username={current_user.username}")
         raise HTTPException(status_code=404, detail="Customer not found")
@@ -47,9 +50,8 @@ def update_customer(data: CustomerUpdate, current_user: UserModel = Depends(get_
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(customer, key, value)
     
-    session.add(customer)
-    session.commit()
-    session.refresh(customer)
+    await session.commit()
+    await session.refresh(customer)
     
     logger.info(f"Customer updated successfully: customer_id={customer.customer_id}, user_id={current_user.user_id}, username={current_user.username}")
     
@@ -57,20 +59,21 @@ def update_customer(data: CustomerUpdate, current_user: UserModel = Depends(get_
 
 
 @router.delete("/delete")
-def delete_customer(current_user:UserModel = Depends(get_current_user), session: Session = Depends(get_session)):
+async def delete_customer(current_user:UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     
-    customer = session.exec(
+    result = await session.exec(
         select(Customer).where(Customer.user_id == current_user.user_id)
-    ).first()
+    )
+    
+    customer = result.one_or_none()
     
     if not customer:
         logger.error(f"Delete failed: Customer not found for user_id={current_user.user_id}, username={current_user.username}")
         raise HTTPException(status_code=404, detail="Customer not found")
     
-    customer.is_deleted = 1
+    customer.is_deleted = True
     customer.updated_by = current_user.username
-    session.commit()
-    session.refresh(customer)
+    await session.commit()
     
     logger.info(f"Customer deleted: customer_id={customer.customer_id}, user_id={current_user.user_id}, username={current_user.username}")
     
@@ -78,17 +81,19 @@ def delete_customer(current_user:UserModel = Depends(get_current_user), session:
 
 
 @router.get("/me")
-def get_my_info(current_user: UserModel = Depends(get_current_user)):
+async def get_my_info(current_user: UserModel = Depends(get_current_user)):
     logger.info(f"Fetched current user info: user_id={current_user.user_id}, username={current_user.username}")
     return current_user
     
 
 @router.get("/myorders")
-def get_customer_orders(current_user:UserModel = Depends(get_current_user), session: Session = Depends(get_session)):
+async def get_customer_orders(current_user:UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     
-    orders = session.exec(
+    results = await session.exec(
         select(Order).where(Order.customer_id == current_user.customer.customer_id)
-    ).all()
+    )
+    
+    orders = results.all()
     
     logger.info(f"Fetched orders for customer_id={current_user.customer.customer_id}, username={current_user.username}. Total orders={len(orders)}")
     

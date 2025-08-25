@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session, select
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from models import Order, OrderCreate, OrderUpdate, OrderItem, Product, Invoice
 from db import get_session
 from models.User import UserModel
@@ -16,85 +17,89 @@ def generate_invoice_number():
 
 
 @router.post("/create")
-def create_order(order_data: OrderCreate, session: Session = Depends(get_session), current_user: UserModel = Depends(get_current_user)):
+async def create_order(order_data: OrderCreate, session: AsyncSession = Depends(get_session), current_user: UserModel = Depends(get_current_user)):
+    
     logger.info(f"User '{current_user.username}' is creating a new order")
 
-    order = Order(
-        customer_id=current_user.customer.customer_id,
-        created_by=current_user.username,
-        updated_by=current_user.username
-    )
-    session.add(order)
-    session.flush()
-
-    subtotal = Decimal("0.0")
-
-    for item in order_data.items:
-        product = session.get(Product, item.product_id)
-        if not product:
-            logger.warning(
-                f"Product with ID {item.product_id} not found for order by user '{current_user.username}'"
+    try:
+        async with session.begin():
+            order = Order(
+                customer_id=current_user.customer.customer_id,
+                created_by=current_user.username,
+                updated_by=current_user.username,
             )
-            raise HTTPException(status_code=400, detail=f"Product with ID {item.product_id} not found.")
+            session.add(order)
+            await session.flush()
 
-        line_total = product.product_price * item.quantity
-        subtotal += line_total
+            subtotal = Decimal("0.0")
 
-        logger.debug(f"Adding product {item.product_id} (Qty: {item.quantity}) to order {order.order_id}")
-        order_item = OrderItem(
-            order_id=order.order_id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            product_price=product.product_price,
-            created_by=current_user.username,
-            updated_by=current_user.username
-        )
-        session.add(order_item)
+            for item in order_data.items:
+                product = await session.get(Product, item.product_id)
+                if not product:
+                    logger.warning(f"Product with ID {item.product_id} not found for order by '{current_user.username}'")
+                    raise HTTPException(status_code=400, detail=f"Product with ID {item.product_id} not found.")
 
-    tax_amount = subtotal * Decimal("0.1")
-    discount_amount = Decimal("0.0")
-    total_amount = subtotal + tax_amount - discount_amount
+                line_total = product.product_price * item.quantity
+                subtotal += line_total
 
-    session.commit()
-    session.refresh(order)
+                logger.debug(f"Adding product {item.product_id} (Qty: {item.quantity}) to order {order.order_id}")
 
-    logger.info(f"Order {order.order_id} successfully created by user '{current_user.username}'")
+                order_item = OrderItem(
+                    order_id=order.order_id,
+                    product_id=item.product_id,
+                    quantity=item.quantity,
+                    product_price=product.product_price,
+                    created_by=current_user.username,
+                    updated_by=current_user.username,
+                )
+                session.add(order_item)
 
-    invoice = Invoice(
-        invoice_number=generate_invoice_number(),
-        order_id=order.order_id,
-        invoice_date=datetime.now(timezone.utc),
-        subtotal=subtotal,
-        tax_amount=tax_amount,
-        discount_amount=discount_amount,
-        total_amount=total_amount,
-        created_by=current_user.username,
-        updated_by=current_user.username
-    )
+            tax_amount = subtotal * Decimal("0.1")
+            discount_amount = Decimal("0.0")
+            total_amount = subtotal + tax_amount - discount_amount
 
-    session.add(invoice)
-    session.commit()
-    session.refresh(invoice)
+            invoice = Invoice(
+                invoice_number=generate_invoice_number(),
+                order_id=order.order_id,
+                invoice_date=datetime.now(timezone.utc),
+                subtotal=subtotal,
+                tax_amount=tax_amount,
+                discount_amount=discount_amount,
+                total_amount=total_amount,
+                created_by=current_user.username,
+                updated_by=current_user.username,
+            )
+            session.add(invoice)
 
-    logger.info(f"Invoice {invoice.invoice_number} created for order {order.order_id}")
+        await session.refresh(order)
+        await session.refresh(invoice)
 
-    return {
-        "order_id": order.order_id,
-        "customer_id": order.customer_id,
-        "invoice": {
-            "invoice_id": invoice.invoice_id,
-            "invoice_number": invoice.invoice_number,
-            "total_amount": invoice.total_amount,
-            "payment_status": invoice.payment_status,
+        logger.info(f"Order {order.order_id} and Invoice {invoice.invoice_number} created by '{current_user.username}'")
+
+        return {
+            "order_id": order.order_id,
+            "customer_id": order.customer_id,
+            "invoice": {
+                "invoice_id": invoice.invoice_id,
+                "invoice_number": invoice.invoice_number,
+                "total_amount": invoice.total_amount,
+                "payment_status": invoice.payment_status,
+            },
         }
-    }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Transaction failed: {e}")
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Order creation failed")
 
 
 @router.patch("/update/{id}")
-def update_order(id: int, data: OrderUpdate, current_user: UserModel = Depends(get_current_user), session: Session = Depends(get_session)):
+async def update_order(id: int, data: OrderUpdate, current_user: UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     logger.info(f"User '{current_user.username}' is updating order ID {id}")
 
-    order = session.get(Order, id)
+    order = await session.get(Order, id)
     if not order:
         logger.error(f"Update failed - Order {id} not found")
         raise HTTPException(status_code=404, detail="Order not found")
@@ -104,18 +109,18 @@ def update_order(id: int, data: OrderUpdate, current_user: UserModel = Depends(g
 
     order.updated_by = current_user.username
     session.add(order)
-    session.commit()
-    session.refresh(order)
+    await session.commit()
+    await session.refresh(order)
 
     logger.info(f"Order {id} updated successfully by '{current_user.username}'")
     return order
 
 
 @router.delete("/delete/{id}")
-def delete_order(id: int, current_user: UserModel = Depends(get_current_user), session: Session = Depends(get_session)):
+async def delete_order(id: int, current_user: UserModel = Depends(get_current_user), session: AsyncSession = Depends(get_session)):
     logger.info(f"User '{current_user.username}' requested delete for order ID {id}")
 
-    order = session.get(Order, id)
+    order = await session.get(Order, id)
 
     if not order:
         logger.error(f"Delete failed - Order {id} not found")
@@ -128,25 +133,26 @@ def delete_order(id: int, current_user: UserModel = Depends(get_current_user), s
     for item in order_items:
         item.is_deleted = True
 
-    session.commit()
-    session.refresh(order)
+    await session.commit()
 
     logger.info(f"Order {id} marked as deleted by '{current_user.username}'")
     return {"message": "Order deleted"}
 
 
 @router.get("/all")
-def get_all_orders(session: Session = Depends(get_session)):
+async def get_all_orders(session: AsyncSession = Depends(get_session)):
     logger.debug("Fetching all active orders")
-    orders = session.exec(select(Order).where(Order.is_deleted == False)).all()
+    results = await session.exec(select(Order).where(Order.is_deleted == False))
+    orders = results.all()
     logger.info(f"Fetched {len(orders)} active orders")
     return orders
 
 
 @router.get("/{id}")
-def get_single_order(id: int, session: Session = Depends(get_session)):
+async def get_single_order(id: int, session: AsyncSession = Depends(get_session)):
     logger.debug(f"Fetching order ID {id}")
-    order = session.exec(select(Order).where((Order.order_id == id) & (Order.is_deleted == False))).first()
+    result = await session.exec(select(Order).where((Order.order_id == id) & (Order.is_deleted == False)))
+    order = result.one_or_none()
     
     if not order:
         logger.warning(f"Order {id} not found")

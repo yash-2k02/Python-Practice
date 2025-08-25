@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from db import get_session
 from models.User import UserModel, UserCreate 
 from auth import pwd_context
@@ -15,15 +15,18 @@ def get_password_hash(password: str):
 
 
 @router.post("/create", status_code=status.HTTP_201_CREATED)
-def create_user_endpoint(user: UserCreate, session: Session = Depends(get_session)):
+async def create_user_endpoint(user: UserCreate, session: AsyncSession = Depends(get_session)):
 
     logger.info(f"Attempting to create user: {user.username}")
 
-    existing_user = session.exec(
+    result = await session.exec(
         select(UserModel).where(
             UserModel.username == user.username
         )
-    ).first()
+    )
+    
+    existing_user = result.one_or_none()
+    
 
     if existing_user:
         logger.warning(f"User creation failed. Username already exists: {user.username}")
@@ -40,14 +43,14 @@ def create_user_endpoint(user: UserCreate, session: Session = Depends(get_sessio
 
     try:
         session.add(db_user)
-        session.commit()
-        session.refresh(db_user)
+        await session.commit()
+        await session.refresh(db_user)
         logger.info(f"User created successfully: {db_user.username} (id={db_user.user_id})")
         
         return {"id": db_user.user_id, "username": db_user.username}
     
     except Exception as e:
-        session.rollback()
+        await session.rollback()
         logger.error(f"Error creating user {user.username}: {e}")
         
         raise HTTPException(

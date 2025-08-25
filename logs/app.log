@@ -1,0 +1,20 @@
+2025-08-20 12:40:21,955 - app - INFO - Attempting to create user: Saish P
+2025-08-20 12:43:20,435 - app - INFO - Attempting to create user: Saish P
+2025-08-20 12:43:20,838 - app - INFO - User created successfully: Saish P (id=8)
+2025-08-20 12:44:21,934 - app - INFO - Login attempt for username='Saish P'
+2025-08-20 12:44:22,234 - app - INFO - Login successful for username='Saish P' - Token issued
+2025-08-20 13:05:52,093 - app - INFO - Login attempt for username='Saish P'
+2025-08-20 13:05:52,459 - app - INFO - Login successful for username='Saish P' - Token issued
+2025-08-20 13:07:04,723 - app - INFO - Customer created successfully: customer_id=3, user_id=8, username=Saish P
+2025-08-20 13:07:46,264 - app - INFO - User 'Saish P' is creating a new order
+2025-08-20 13:09:54,683 - app - INFO - User 'Saish P' is creating a new order
+2025-08-20 13:11:19,768 - app - INFO - User 'Saish P' is creating a new order
+2025-08-20 13:11:19,823 - app - INFO - Order 4 successfully created by user 'Saish P'
+2025-08-20 13:11:19,846 - app - INFO - Invoice INV-2025-6F8C9D created for order 4
+2025-08-20 18:13:13,650 - app - INFO - Login attempt for username='yash2k02'
+2025-08-20 18:17:26,297 - app - INFO - Login attempt for username='yash2k02'
+2025-08-20 18:17:26,561 - app - INFO - Login successful for username='yash2k02' - Token issued
+2025-08-21 14:44:21,719 - app - INFO - Attempting to create user: Ganesh Gudekar
+2025-08-21 14:44:22,134 - app - INFO - User created successfully: Ganesh Gudekar (id=9)
+2025-08-21 15:03:36,687 - app - INFO - Login attempt for username='Ganesh Gudekar'
+2025-08-21 15:03:37,069 - app - INFO - Login successful for username='Ganesh Gudekar' - Token issued

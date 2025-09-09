@@ -1,0 +1,28 @@
+[project]
+name = "hf-model-initialization"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.116.1",
+    "langchain>=0.3.27",
+    "langchain-huggingface>=0.3.1",
+    "transformers>=4.56.0",
+    "uvicorn>=0.35.0",
+    "torch"
+]
+
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+torchvision = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

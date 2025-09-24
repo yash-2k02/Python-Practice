@@ -1,0 +1,35 @@
+[project]
+name = "12-chat-with-doc-api"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.1.0",
+    "fastapi>=0.117.1",
+    "langchain>=0.3.27",
+    "langchain-chroma>=0.2.6",
+    "langchain-community>=0.3.29",
+    "langchain-huggingface>=0.3.1",
+    "langchain-ollama>=0.3.8",
+    "pypdf>=6.0.0",
+    "python-multipart>=0.0.20",
+    "sentence-transformers>=5.1.0",
+    "tiktoken>=0.11.0",
+    "torch>=2.7.0",
+    "uvicorn>=0.36.0",
+]
+
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu" },
+]
+torchvision = [
+    { index = "pytorch-cpu" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

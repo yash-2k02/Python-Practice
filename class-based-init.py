@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from transformers import pipeline
 from langchain_huggingface.llms import HuggingFacePipeline
 
 class LangChainHFModel:
@@ -12,9 +12,7 @@ class LangChainHFModel:
             print("Model and pipeline loaded from cache")
         else:
             print("Model and pipeline initialized")
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
-            model = AutoModelForCausalLM.from_pretrained(model_name)
-            pipe = pipeline("text-generation", model=model, tokenizer=tokenizer, max_length=max_length)
+            pipe = pipeline("text-generation", model=model_name, max_length=max_length)
             llm = HuggingFacePipeline(pipeline=pipe)
             self._cache[model_name] = llm
             self.llm = llm
